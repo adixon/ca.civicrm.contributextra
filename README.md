@@ -9,7 +9,7 @@ To solve that problem, and also provide simpler, more tailed administrative data
 
 Auto-memberships
  
-Memberships tied to recurring contributions have issues. Even non-recurring memberships are a bit unfriendly to manage. Most of the time, you would expect a contribution of type 'Membership Contribution' to auto-renew a membership, but it doesn't.
+Memberships tied to recurring contributions have issues. Even non-recurring memberships are a bit unfriendly to manage. You would expect a contribution of type 'Membership Contribution' to auto-renew a membership, but it doesn't.
 
 This extension allows you to map financial types to membership types. Every time a completed contribution of that type gets added to a contact, this extension will auto-renew the membership (or create a new one if it doesn't exist).
 

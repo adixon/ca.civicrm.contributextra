@@ -164,8 +164,10 @@ function contributextra_civicrm_pre($op, $objectName, $objectId, &$params) {
         $dates = CRM_Member_BAO_MembershipType::getRenewalDatesForMembershipType($existing_membership['id'],date('YmdHis',strtotime($end_date)),$membership_type_id,1);
         $membership['start_date'] = CRM_Utils_Array::value('start_date', $dates);
         $membership['end_date'] = CRM_Utils_Array::value('end_date', $dates);
+        $membership['source'] = ts('Auto-renewed membership from contribution of implicit membership type');
       }
       else { // let civicrm calculate the end dates
+        $membership['source'] = ts('Auto-created membership from contribution of implicit membership type');
       }     
       civicrm_api3('Membership','create',$membership);
       if ($membership_financial_type_id) {

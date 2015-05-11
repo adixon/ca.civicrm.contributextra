@@ -114,8 +114,65 @@ function contributextra_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
  */
 function contributextra_civicrm_pre($op, $objectName, $objectId, &$params) {
   // since this function gets called a lot, quickly determine if I care about the record being created
-  // watchdog('contributextra','hook_civicrm_pre for '.$objectName.', '.$op.', <pre>@params</pre>',array('@params' => print_r($params)));
-  // if (('create' == $op) && ('Contribution' == $objectName || 'ContributionRecur' == $objectName) && !empty($params['contribution_status_id'])) {
+  if (('create' == $op) && ('Contribution' == $objectName)) {
+    // watchdog('contributextra','hook_civicrm_pre for '.$objectName.', '.$op.', <pre>@params</pre>',array('@params' => print_r($params, TRUE)));
+    $financial_type_id = $params['financial_type_id'];
+    $contact_id = $params['contact_id'];
+    // check for and set default
+    $p = array('name' => 'membership_from_contribution_type_'.$financial_type_id);
+    $result = civicrm_api3('Setting', 'getvalue', $p);
+    if (!empty($result)) {
+      $membership_type_id = $result;
+      // get details, skip if that type no longer exists, for example
+      $membership_type = civicrm_api3('membershipType','getsingle',array('membership_type_id' => $membership_type_id));
+      if (empty($membership_type['id'])) {
+        return;
+      }
+      /* get the possible alternative financial type */
+      $p = array('name' => 'membership_from_contribution_type_'.$financial_type_id.'_financial_type_id');
+      $result = civicrm_api3('Setting', 'getvalue', $p);
+      $membership_financial_type_id = empty($result) ? '' : $result;
+      /* 3 cases: extend an existing membership, change type, or create a new one */
+      $existing_membership = array();
+      $p = array('contact_id' => $contact_id,'membership_type_id' => $membership_type_id);
+      $result = civicrm_api3('Membership', 'get', $p);
+      if (!empty($result['values'])) { // found an existing one of the right type
+        $existing_membership = reset($result['values']);
+      }
+      else { // try to find one of the wrong type (and change it)
+        unset($p['membership_type_id']);
+        $result = civicrm_api3('Membership', 'get', $p);
+        if (!empty($result['values'])) { // found an existing one of the wrong type!
+          $existing_membership = reset($result['values']);
+        } 
+      } 
+      // figure out end date of membership
+      // or even whether we can quit already
+      $end_date = date('Y-m-d'); // default today for expired and new memberships
+      if (!empty($existing_membership['end_date'])) {
+        if (($existing_membership['end_date'] > $end_date) && $membership_financial_type_id) {
+          // we don't need to use this contribution for membership after all!
+          return;
+        }
+        if ($existing_membership['status_id'] <= 3) { // if current membership is 'active', use it's end date
+          $end_date = $existing_membership['end_date'];
+        }
+      }
+      $membership = array('contact_id' => $contact_id, 'membership_type_id' => $membership_type_id);
+      if (!empty($existing_membership['id'])) {
+        $membership['id'] = $existing_membership['id'];
+        $dates = CRM_Member_BAO_MembershipType::getRenewalDatesForMembershipType($existing_membership['id'],date('YmdHis',strtotime($end_date)),$membership_type_id,1);
+        $membership['start_date'] = CRM_Utils_Array::value('start_date', $dates);
+        $membership['end_date'] = CRM_Utils_Array::value('end_date', $dates);
+      }
+      else { // let civicrm calculate the end dates
+      }     
+      civicrm_api3('Membership','create',$membership);
+      if ($membership_financial_type_id) {
+        $params['financial_type_id'] = $membership_financial_type_id;
+      }
+    }
+  }
 }
 
 /*
@@ -141,8 +198,7 @@ function contributextra_civicrm_postProcess($formName, &$form) {
   }
  // else 
   // echo $fname; die();
-}
-/*
+} /*
  * Enable identification of admin-only contribution pages
  */
 function contributextra_CRM_Contribute_Form_ContributionPage_Settings(&$form) {

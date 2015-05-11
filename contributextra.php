@@ -163,6 +163,58 @@ function contributextra_CRM_Contribute_Form_ContributionPage_Settings(&$form) {
 }
 
 /*
+ * Enable mapping of financial types to memberships
+ */
+function contributextra_CRM_Financial_Form_FinancialType(&$form) {
+  static $field_added;
+  $membership_types = array();
+  if ($form->getVar('_id') > 0) {
+    $financial_type_id = $form->getVar('_id');
+    $params = array('version' => 3, 'sequential' => 1, 'financial_type_id' => $financial_type_id);
+    $result = civicrm_api('MembershipType', 'get', $params);
+    if (!empty($result['values'])) {
+      $membership_types[0] = '-- none --';
+      foreach($result['values'] as $value) {
+        $membership_types[$value['id']] = $value['name'];
+      }
+    }
+    $params = array('version' => 3, 'sequential' => 1);
+    $result = civicrm_api('FinancialType', 'get', $params);
+    $membership_financial_type = array();
+    if (!empty($result['values'])) {
+      $membership_financial_types[0] = '-- same --';
+      foreach($result['values'] as $value) {
+        if ($value['id'] != $financial_type_id) {
+          $membership_financial_types[$value['id']] = $value['name'];
+        }
+      }
+    }
+  }
+  if (count($membership_types)) { // we have some eligible types, see if there are any default settings
+    // print_r($membership_types); die();
+    $form->addElement('select','membership_implicit',ts('Auto-create/renew this membership type for contributions of this type.'),$membership_types);
+    $form->addElement('select','membership_financial_type_id',ts('Override to use this financial type for the membership.'),$membership_financial_types);
+    if (empty($field_added)) {
+      CRM_Core_Region::instance('page-body')->add(array(
+        'template' => 'CRM/Financial/Form/FinancialType/membershipImplicit.tpl',
+      ));
+    }
+    $field_added = 1;
+    // check for and set default
+    $params = array('name' => 'membership_from_contribution_type_'.$financial_type_id);
+    $result = civicrm_api3('Setting', 'getvalue', $params);
+    if (!empty($result)) {
+      $form->setDefaults(array('membership_implicit' => $result));
+    }
+    $params = array('name' => 'membership_from_contribution_type_'.$financial_type_id.'_financial_type_id');
+    $result = civicrm_api3('Setting', 'getvalue', $params);
+    if (!empty($result)) {
+      $form->setDefaults(array('membership_financial_type_id' => $result));
+    }
+  }
+}
+
+/*
  * Process new field
  */
 function contributextra_process_CRM_Contribute_Form_ContributionPage_Settings(&$form) {
@@ -179,6 +231,36 @@ function contributextra_process_CRM_Contribute_Form_ContributionPage_Settings(&$
   );
   $dao = CRM_Core_DAO::executeQuery($sql,$args);
 }
+
+function contributextra_process_CRM_Financial_Form_FinancialType(&$form) {
+  $financial_type_id = $form->getVar('_id');
+  if (empty($financial_type_id)) return;
+  $submission = $form->exportValues('membership_implicit');
+  $name = 'membership_from_contribution_type_'.$financial_type_id;
+  $membership_implicit = empty($submission['membership_implicit']) ? '' : $submission['membership_implicit'];
+  $membership_financial_type_id = '';
+  if (TRUE || $membership_implicit) {
+    $params = array('domain_id' => 'current_domain', $name => $membership_implicit);
+    $result = civicrm_api3('Setting', 'create', $params);
+    $submission = $form->exportValues('membership_financial_type_id');
+    $membership_financial_type_id = $submission['membership_financial_type_id'];
+  }
+  else {
+    $params = array('domain_id' => 'current_domain', 'name' => $name);
+    $result = civicrm_api3('Setting', 'delete', $params);
+  }
+  // and now the other seting ...
+  $name .= '_financial_type_id';
+  if (TRUE || $membership_financial_type_id) {
+    $params = array('domain_id' => 'current_domain', $name => $membership_financial_type_id);
+    $result = civicrm_api3('Setting', 'create', $params);
+  }
+  else {
+    $params = array('domain_id' => 'current_domain', 'name' => $name);
+    $result = civicrm_api3('Setting', 'delete', $params);
+  }
+}
+
 
 /*
  * Handle front end forms if they are admin-only

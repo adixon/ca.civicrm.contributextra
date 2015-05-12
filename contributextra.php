@@ -107,6 +107,16 @@ function contributextra_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
   _contributextra_civix_civicrm_alterSettingsFolders($metaDataFolders);
 }
 
+function contributextra_civicrm_varset($vars) {
+  $version = CRM_Utils_System::version();
+  if (version_compare($version, '4.5') < 0) { /// support 4.4!
+    CRM_Core_Resources::singleton()->addSetting('contributextra', $vars);
+  }
+  else {
+    CRM_Core_Resources::singleton()->addVars('contributextra', $vars);
+  }
+}
+
 /**
  * Implementation of hook_civicrm_pre
  *
@@ -127,7 +137,8 @@ function contributextra_civicrm_buildForm($formName, &$form) {
   if (function_exists($fname)) {
     $fname($form);
   }
-  // else echo $fname;
+  else { // echo $fname; die(); 
+  }
 }
 
 /*
@@ -146,7 +157,6 @@ function contributextra_civicrm_postProcess($formName, &$form) {
  * Enable identification of admin-only contribution pages
  */
 function contributextra_CRM_Contribute_Form_ContributionPage_Settings(&$form) {
-  // print_r($form); die();
   if ($form->getVar('_id') > 0) {
     $form->addElement('checkbox','is_admin_only',ts('Is this page for administrative use only?'));
     $contribution_page_id = $form->getVar('_id');
@@ -155,10 +165,15 @@ function contributextra_CRM_Contribute_Form_ContributionPage_Settings(&$form) {
       1 => array($contribution_page_id, 'Integer'),
     );
     $dao = CRM_Core_DAO::executeQuery($sql,$args);
-    $form->setDefaults(array('is_admin_only' => $dao->N));
-    CRM_Core_Region::instance('page-body')->add(array(
-      'template' => 'CRM/Contribute/Form/ContributionPage/isAdminOnly.tpl',
-    ));
+    $is_admin_only = $dao->N ? TRUE : FALSE;
+    $form->setDefaults(array('is_admin_only' => $is_admin_only));
+    $html = '<div id="is-admin-only" style="margin: 10px 20px; padding: 10px 20px; background-color: #FFF; border: 1px solid grey; border-radius: 5px;">
+<input id="is_admin_only" name="is_admin_only" type="checkbox" value="1"'.($is_admin_only ? ' checked="checked"':'').' class="form-checkbox" />
+<label for="is_admin_only">Is this page for administrative use only?</label>
+<div class="description"> &nbsp; When this is checked, the contribution page will be deactivated for public access and linked to from contacts\' Contribution tab for easy administrative use.</div>
+</div>';
+    contributextra_civicrm_varset(array('is_admin_only' => $is_admin_only, 'is_admin_html' => $html));
+    CRM_Core_Resources::singleton()->addScriptFile('ca.civicrm.contributextra', 'js/contribution_page_tab.js');
   }
 }
 
@@ -166,7 +181,6 @@ function contributextra_CRM_Contribute_Form_ContributionPage_Settings(&$form) {
  * Enable mapping of financial types to memberships
  */
 function contributextra_CRM_Financial_Form_FinancialType(&$form) {
-  static $field_added;
   $membership_types = array();
   if ($form->getVar('_id') > 0) {
     $financial_type_id = $form->getVar('_id');
@@ -192,25 +206,40 @@ function contributextra_CRM_Financial_Form_FinancialType(&$form) {
   }
   if (count($membership_types)) { // we have some eligible types, see if there are any default settings
     // print_r($membership_types); die();
-    $form->addElement('select','membership_implicit',ts('Auto-create/renew this membership type for contributions of this type.'),$membership_types);
-    $form->addElement('select','membership_financial_type_id',ts('Override to use this financial type for the membership.'),$membership_financial_types);
-    if (empty($field_added)) {
-      CRM_Core_Region::instance('page-body')->add(array(
-        'template' => 'CRM/Financial/Form/FinancialType/membershipImplicit.tpl',
-      ));
-    }
-    $field_added = 1;
+    $membership_implicit = $form->addElement('select','membership_implicit',ts('Auto-create/renew this membership type for contributions of this type.'),$membership_types);
+    $financial_type = $form->addElement('select','membership_financial_type_id',ts('Override to use this financial type for the membership.'),$membership_financial_types);
     // check for and set default
     $params = array('name' => 'membership_from_contribution_type_'.$financial_type_id);
     $result = civicrm_api3('Setting', 'getvalue', $params);
+    $defaults = array();
     if (!empty($result)) {
-      $form->setDefaults(array('membership_implicit' => $result));
+      $defaults['membership_implicit'] = $result;
     }
     $params = array('name' => 'membership_from_contribution_type_'.$financial_type_id.'_financial_type_id');
     $result = civicrm_api3('Setting', 'getvalue', $params);
     if (!empty($result)) {
-      $form->setDefaults(array('membership_financial_type_id' => $result));
+      $defaults['membership_financial_type_id'] = $result;
     }
+    if (count($defaults)) {
+      $form->setDefaults($defaults);
+    }
+    // and now add the html to the form
+    $myform = clone $form;
+    $renderer = $myform->getRenderer();
+    $myform->accept($renderer);
+    $html = $renderer->toArray();
+    $html = '<div id="membership-implicit" style="margin: 10px 20px; padding: 10px 20px; background-color: #FFF; border: 1px solid grey; border-radius: 5px;">
+<div class="membership-implicit">'.$html['membership_implicit']['label'].'<br />'
+. $html['membership_implicit']['html']
+. '<div class="description"> &nbsp; When selected, contributions of this type will automatically create or renew the specified membership type.</div>
+</div>
+<div class="membership-financial-type-id">' . $html['membership_financial_type_id']['label'] . '<br />'
+. $html['membership_financial_type_id']['html']
+. '<div class="description"> &nbsp; When selected, the portion of contributions that are used for membership creation/renewal will change to this type.</div>
+</div>
+</div>';
+    contributextra_civicrm_varset(array('membership_implicit_html' => $html));
+    CRM_Core_Resources::singleton()->addScriptFile('ca.civicrm.contributextra', 'js/financial_type.js');
   }
 }
 
@@ -323,16 +352,9 @@ function contributextra_CRM_Contribute_Form_Search(&$form) {
     }
   }
   if (count($backoffice_links)) {
-    // a hackish way to inject these links into the form, they are displayed nicely using some javascript
-    $form->addElement('hidden','backofficeLinks',json_encode($backoffice_links));
-    /* CRM_Core_Region::instance('page-body')->add(array(
-      'template' => 'CRM/Contribute/Form/Search/AdminOnly.tpl',
-    )); */ 
     CRM_Core_Resources::singleton()->addStyleFile('ca.civicrm.contributextra', 'css/contribute_form_search.css');
-    /* the better way to do it on a later version of civicrm
-    CRM_Core_Resources::singleton()->addSetting(array('contributextra' => array('backofficeLinks' => $backoffice_links)));
+    contributextra_civicrm_varset(array('backofficeLinks' => $backoffice_links));
     CRM_Core_Resources::singleton()->addScriptFile('ca.civicrm.contributextra', 'js/contribute_form_search.js');
-    */
   }
 }
 

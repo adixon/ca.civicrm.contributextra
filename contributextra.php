@@ -124,8 +124,9 @@ function contributextra_civicrm_varset($vars) {
  */
 function contributextra_civicrm_pre($op, $objectName, $objectId, &$params) {
   // since this function gets called a lot, quickly determine if I care about the record being created
-  // watchdog('contributextra','hook_civicrm_pre for '.$objectName.', '.$op.', <pre>@params</pre>',array('@params' => print_r($params)));
-  // if (('create' == $op) && ('Contribution' == $objectName || 'ContributionRecur' == $objectName) && !empty($params['contribution_status_id'])) {
+  watchdog('contributextra','hook_civicrm_pre for '.$objectName.', '.$op.', <pre>@params</pre>',array('@params' => print_r($params)));
+  if (('create' == $op) && ('Contribution' == $objectName) && !empty($params['contribution_status_id'])) {
+  }
 }
 
 /*
@@ -206,8 +207,8 @@ function contributextra_CRM_Financial_Form_FinancialType(&$form) {
   }
   if (count($membership_types)) { // we have some eligible types, see if there are any default settings
     // print_r($membership_types); die();
-    $membership_implicit = $form->addElement('select','membership_implicit',ts('Auto-create/renew this membership type for contributions of this type.'),$membership_types);
-    $financial_type = $form->addElement('select','membership_financial_type_id',ts('Override to use this financial type for the membership.'),$membership_financial_types);
+    $membership_implicit = $form->addElement('advmultiselect','membership_implicit',ts('Renew these membership types for contributions of this type.'),$membership_types);
+    $financial_type = $form->addElement('select','membership_financial_type_id',ts('Override to use this financial type for the membership portion of the payment.'),$membership_financial_types);
     // check for and set default
     $params = array('name' => 'membership_from_contribution_type_'.$financial_type_id);
     $result = civicrm_api3('Setting', 'getvalue', $params);
@@ -268,26 +269,14 @@ function contributextra_process_CRM_Financial_Form_FinancialType(&$form) {
   $name = 'membership_from_contribution_type_'.$financial_type_id;
   $membership_implicit = empty($submission['membership_implicit']) ? '' : $submission['membership_implicit'];
   $membership_financial_type_id = '';
-  if (TRUE || $membership_implicit) {
-    $params = array('domain_id' => 'current_domain', $name => $membership_implicit);
-    $result = civicrm_api3('Setting', 'create', $params);
-    $submission = $form->exportValues('membership_financial_type_id');
-    $membership_financial_type_id = $submission['membership_financial_type_id'];
-  }
-  else {
-    $params = array('domain_id' => 'current_domain', 'name' => $name);
-    $result = civicrm_api3('Setting', 'delete', $params);
-  }
-  // and now the other seting ...
+  $params = array('domain_id' => 'current_domain', $name => $membership_implicit);
+  $result = civicrm_api3('Setting', 'create', $params);
+  // and now the financial type override seting
+  $submission = $form->exportValues('membership_financial_type_id');
+  $membership_financial_type_id = $submission['membership_financial_type_id'];
   $name .= '_financial_type_id';
-  if (TRUE || $membership_financial_type_id) {
-    $params = array('domain_id' => 'current_domain', $name => $membership_financial_type_id);
-    $result = civicrm_api3('Setting', 'create', $params);
-  }
-  else {
-    $params = array('domain_id' => 'current_domain', 'name' => $name);
-    $result = civicrm_api3('Setting', 'delete', $params);
-  }
+  $params = array('domain_id' => 'current_domain', $name => $membership_financial_type_id);
+  $result = civicrm_api3('Setting', 'create', $params);
 }
 
 

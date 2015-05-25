@@ -124,7 +124,7 @@ function contributextra_civicrm_varset($vars) {
  */
 function contributextra_civicrm_pre($op, $objectName, $objectId, &$params) {
   // since this function gets called a lot, quickly determine if I care about the record being created
-  watchdog('contributextra','hook_civicrm_pre for '.$objectName.', '.$op.', <pre>@params</pre>',array('@params' => print_r($params)));
+  watchdog('contributextra','hook_civicrm_pre for '.$objectName.', '.$op.', <pre>@params</pre>',array('@params' => print_r($params, TRUE)));
   // i only care about recurring contributions being created or edit, of the right financial type id
   if (('create' == $op || 'edit' == $op) && ('Contribution' == $objectName) && !empty($params['contribution_status_id']) && !empty($params['contribution_recur_id'])) {
     if ($params['contribution_status_id'] != 1) { // ignore non-completed contributions

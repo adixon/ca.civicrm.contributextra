@@ -117,6 +117,34 @@ function contributextra_civicrm_varset($vars) {
   }
 }
 
+function contributextra_civicrm_navigationMenu(&$navMenu) {
+  $item = array(
+    'label' => 'Contribution Page Extra Settings', 
+    'name' => 'Contribution Page Extra Settings', 
+    'url' => 'civicrm/admin/contribute/extrasettings',
+    'permission' => 'access CiviContribute,administer CiviCRM',
+    'operator'   => 'AND',
+    'separator'  => NULL,
+    'active'     => 1
+  );
+  // Check that our item doesn't already exist
+  $menu_item_search = array('url' => $item['url']);
+  $menu_items = array();
+  CRM_Core_BAO_Navigation::retrieve($menu_item_search, $menu_items);
+  if (empty($menu_items)) { 
+    $item['navID'] = 1 + CRM_Core_DAO::singleValueQuery("SELECT max(id) FROM civicrm_navigation");
+    foreach ($navMenu as $key => $value) {
+      if ('Contributions' == $value['attributes']['name']) {
+        $item['parentID'] =  $key;
+        $navMenu[$key]['child'][$item['navID']] = array(
+          'attributes' => $item,
+        );
+        break;
+      }
+    }
+  }
+}
+
 /*
  * hook_civicrm_buildForm
  * Do a Drupal 7 style thing so we can write smaller functions
@@ -132,7 +160,6 @@ function contributextra_civicrm_buildForm($formName, &$form) {
 /*
  * hook_civicrm_postProcess
  * Do a Drupal 7 style thing so we can write smaller functions
- */
 function contributextra_civicrm_postProcess($formName, &$form) {
   $fname = 'contributextra_process_'.$formName;
   if (function_exists($fname)) {
@@ -140,48 +167,7 @@ function contributextra_civicrm_postProcess($formName, &$form) {
   }
   // else { echo $fname; die(); }
 } 
-
-/*
- * Enable identification of admin-only contribution pages
  */
-function contributextra_CRM_Contribute_Form_ContributionPage_Settings(&$form) {
-  if ($form->getVar('_id') > 0) {
-    $form->addElement('checkbox','is_admin_only',ts('Is this page for administrative use only?'));
-    $contribution_page_id = $form->getVar('_id');
-    $sql = 'SELECT id FROM civicrm_contributextra_adminpages WHERE contribution_page_id = %1';
-    $args = array(
-      1 => array($contribution_page_id, 'Integer'),
-    );
-    $dao = CRM_Core_DAO::executeQuery($sql,$args);
-    $is_admin_only = $dao->N ? TRUE : FALSE;
-    $form->setDefaults(array('is_admin_only' => $is_admin_only));
-    $html = '<div id="is-admin-only" style="margin: 10px 20px; padding: 10px 20px; background-color: #FFF; border: 1px solid grey; border-radius: 5px;">
-<input id="is_admin_only" name="is_admin_only" type="checkbox" value="1"'.($is_admin_only ? ' checked="checked"':'').' class="form-checkbox" />
-<label for="is_admin_only">Is this page for administrative use only?</label>
-<div class="description"> &nbsp; When this is checked, the contribution page will be deactivated for public access and linked to from contacts\' Contribution tab for easy administrative use.</div>
-</div>';
-    contributextra_civicrm_varset(array('is_admin_only' => $is_admin_only, 'is_admin_html' => $html));
-    CRM_Core_Resources::singleton()->addScriptFile('ca.civicrm.contributextra', 'js/contribution_page_tab.js');
-  }
-}
-
-/*
- * Process new field
- */
-function contributextra_process_CRM_Contribute_Form_ContributionPage_Settings(&$form) {
-  $contribution_page_id = $form->getVar('_id');
-  $submission = $form->exportValues('is_admin_only');
-  if ($submission['is_admin_only']) {
-    $sql = 'INSERT IGNORE INTO civicrm_contributextra_adminpages (contribution_page_id) VALUES (%1)';
-  }
-  else {
-    $sql = 'DELETE FROM civicrm_contributextra_adminpages  WHERE contribution_page_id = %1';
-  }
-  $args = array(
-    1 => array($contribution_page_id, 'Integer'),
-  );
-  $dao = CRM_Core_DAO::executeQuery($sql,$args);
-}
 
 /*
  * Handle front end forms if they are admin-only
@@ -191,16 +177,12 @@ function contributextra_CRM_Contribute_Form_Contribution_Main(&$form) {
   global $user;
   $is_anon = empty($user->uid) ? TRUE : FALSE;
   $contribution_page_id = $form->getVar('_id');
-  $sql = 'SELECT id FROM civicrm_contributextra_adminpages WHERE contribution_page_id = %1';
-  $args = array(
-    1 => array($contribution_page_id, 'Integer'),
-  );
-  $dao = CRM_Core_DAO::executeQuery($sql,$args);
-  $is_admin_only = ($dao->N > 0) ? TRUE : FALSE;
-  if ($is_anon && $is_admin_only) {
+  $settings = civicrm_api3('Setting', 'getvalue', array('name' => 'contributextra_settings'));
+  $setting = empty($settings[$contribution_page_id]) ? 0 : $settings[$contribution_page_id];
+  if ($is_anon && ($setting == 1)) {
     CRM_Core_Error::fatal(ts('This form is marked for administrative use only')); 
   }
-  if (empty($form->_paymentProcessors)) {
+  if (!$setting || empty($form->_paymentProcessors)) {
     return;
   }
 
@@ -227,26 +209,30 @@ function contributextra_CRM_Contribute_Form_Search(&$form) {
     return;
   }
   $contactID = $form->_defaultValues['contact_id'];
-  $is_admin_page = $backoffice_links = array();
-  $sql = 'SELECT contribution_page_id FROM civicrm_contributextra_adminpages';
-  $dao = CRM_Core_DAO::executeQuery($sql);
-  while ($dao->fetch()) {
-    $is_admin_page[$dao->contribution_page_id] = 1;
-  }
+  $backoffice_links = array();
+  $is_admin_page = civicrm_api3('Setting', 'getvalue', array('name' => 'contributextra_settings'));
   $params = array('version' => 3, 'sequential' => 1, 'is_active' => 1);
   $result = civicrm_api('ContributionPage', 'get', $params);
   if (0 == $result['is_error'] && count($result['values']) > 0) {
     foreach($result['values'] as $page) {
-      if ($is_admin_page[$page['id']]) {
+      if (!empty($is_admin_page[$page['id']])) {
         $url = CRM_Utils_System::url('civicrm/contribute/transact','reset=1&cid='.$contactID.'&id='.$page['id']);
         $backoffice_links[] = array('url' => $url, 'title' => $page['title']);
       }
     }
   }
   if (count($backoffice_links)) {
-    CRM_Core_Resources::singleton()->addStyleFile('ca.civicrm.contributextra', 'css/contribute_form_search.css');
-    contributextra_civicrm_varset(array('backofficeLinks' => $backoffice_links));
-    CRM_Core_Resources::singleton()->addScriptFile('ca.civicrm.contributextra', 'js/contribute_form_search.js');
+    $version = CRM_Utils_System::version();
+    if (version_compare($version, '4.5') < 0) { /// support 4.4!
+      // a hackish way to inject these links into the form, they are displayed nicely using some javascript
+      // that is added using the Tab.extra.tpl mechanism
+      $form->addElement('hidden','extra_backoffice_links',json_encode($backoffice_links));
+    }
+    else { // the new and better way as of 4.5
+      CRM_Core_Resources::singleton()->addStyleFile('ca.civicrm.contributextra', 'css/contribute_form_search.css');
+      contributextra_civicrm_varset(array('backofficeLinks' => $backoffice_links));
+      CRM_Core_Resources::singleton()->addScriptFile('ca.civicrm.contributextra', 'js/contribute_form_search.js');
+    }
   }
 }
 

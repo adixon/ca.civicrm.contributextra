@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/admin/contribute/extrasettings</path>
+    <page_callback>CRM_Contributextra_Form_ContributExtraSettings</page_callback>
+    <title>ContributExtraSettings</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
+</menu>

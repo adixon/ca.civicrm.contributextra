@@ -1,4 +1,4 @@
 /* customization for front end, authetnicated access */
-div.crm-section.-section {
+#billing-payment-block div.crm-section.-section {
   display: none;
 }

@@ -126,8 +126,7 @@ function contributextra_civicrm_buildForm($formName, &$form) {
   if (function_exists($fname)) {
     $fname($form);
   }
-  else { // echo $fname; die(); 
-  }
+  // else { echo $fname; die(); }
 }
 
 /*
@@ -139,9 +138,10 @@ function contributextra_civicrm_postProcess($formName, &$form) {
   if (function_exists($fname)) {
     $fname($form);
   }
- // else 
-  // echo $fname; die();
-} /*
+  // else { echo $fname; die(); }
+} 
+
+/*
  * Enable identification of admin-only contribution pages
  */
 function contributextra_CRM_Contribute_Form_ContributionPage_Settings(&$form) {
@@ -166,72 +166,6 @@ function contributextra_CRM_Contribute_Form_ContributionPage_Settings(&$form) {
 }
 
 /*
- * Enable mapping of financial types to memberships
- */
-function contributextra_CRM_Financial_Form_FinancialType(&$form) {
-  $membership_types = array();
-  if ($form->getVar('_id') > 0) {
-    $financial_type_id = $form->getVar('_id');
-    $params = array('version' => 3, 'sequential' => 1, 'financial_type_id' => $financial_type_id);
-    $result = civicrm_api('MembershipType', 'get', $params);
-    if (!empty($result['values'])) {
-      $membership_types[0] = '-- none --';
-      foreach($result['values'] as $value) {
-        $membership_types[$value['id']] = $value['name'];
-      }
-    }
-    $params = array('version' => 3, 'sequential' => 1);
-    $result = civicrm_api('FinancialType', 'get', $params);
-    $membership_financial_type = array();
-    if (!empty($result['values'])) {
-      $membership_financial_types[0] = '-- same --';
-      foreach($result['values'] as $value) {
-        if ($value['id'] != $financial_type_id) {
-          $membership_financial_types[$value['id']] = $value['name'];
-        }
-      }
-    }
-  }
-  if (count($membership_types)) { // we have some eligible types, see if there are any default settings
-    // print_r($membership_types); die();
-    $membership_implicit = $form->addElement('advmultiselect','membership_implicit',ts('Renew these membership types for contributions of this type.'),$membership_types);
-    $financial_type = $form->addElement('select','membership_financial_type_id',ts('Override to use this financial type for the membership portion of the payment.'),$membership_financial_types);
-    // check for and set default
-    $params = array('name' => 'membership_from_contribution_type_'.$financial_type_id);
-    $result = civicrm_api3('Setting', 'getvalue', $params);
-    $defaults = array();
-    if (!empty($result)) {
-      $defaults['membership_implicit'] = $result;
-    }
-    $params = array('name' => 'membership_from_contribution_type_'.$financial_type_id.'_financial_type_id');
-    $result = civicrm_api3('Setting', 'getvalue', $params);
-    if (!empty($result)) {
-      $defaults['membership_financial_type_id'] = $result;
-    }
-    if (count($defaults)) {
-      $form->setDefaults($defaults);
-    }
-    // and now add the html to the form
-    $myform = clone $form;
-    $renderer = $myform->getRenderer();
-    $myform->accept($renderer);
-    $html = $renderer->toArray();
-    $html = '<div id="membership-implicit" style="margin: 10px 20px; padding: 10px 20px; background-color: #FFF; border: 1px solid grey; border-radius: 5px;">
-<div class="membership-implicit">'.$html['membership_implicit']['label'].'<br />'
-. $html['membership_implicit']['html']
-. '<div class="description"> &nbsp; When selected, contributions of this type will automatically create or renew the specified membership type.</div>
-</div>
-<div class="membership-financial-type-id">' . $html['membership_financial_type_id']['label'] . '<br />'
-. $html['membership_financial_type_id']['html']
-. '<div class="description"> &nbsp; When selected, the portion of contributions that are used for membership creation/renewal will change to this type.</div>
-</div>
-</div>';
-    contributextra_civicrm_varset(array('membership_implicit_html' => $html));
-    CRM_Core_Resources::singleton()->addScriptFile('ca.civicrm.contributextra', 'js/financial_type.js');
-  }
-}
-
-/*
  * Process new field
  */
 function contributextra_process_CRM_Contribute_Form_ContributionPage_Settings(&$form) {
@@ -248,24 +182,6 @@ function contributextra_process_CRM_Contribute_Form_ContributionPage_Settings(&$
   );
   $dao = CRM_Core_DAO::executeQuery($sql,$args);
 }
-
-function contributextra_process_CRM_Financial_Form_FinancialType(&$form) {
-  $financial_type_id = $form->getVar('_id');
-  if (empty($financial_type_id)) return;
-  $submission = $form->exportValues('membership_implicit');
-  $name = 'membership_from_contribution_type_'.$financial_type_id;
-  $membership_implicit = empty($submission['membership_implicit']) ? '' : $submission['membership_implicit'];
-  $membership_financial_type_id = '';
-  $params = array('domain_id' => 'current_domain', $name => $membership_implicit);
-  $result = civicrm_api3('Setting', 'create', $params);
-  // and now the financial type override seting
-  $submission = $form->exportValues('membership_financial_type_id');
-  $membership_financial_type_id = $submission['membership_financial_type_id'];
-  $name .= '_financial_type_id';
-  $params = array('domain_id' => 'current_domain', $name => $membership_financial_type_id);
-  $result = civicrm_api3('Setting', 'create', $params);
-}
-
 
 /*
  * Handle front end forms if they are admin-only

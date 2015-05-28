@@ -1,5 +1,5 @@
 /* avoid duplicates */
 
-.action-link, .acheft-backend-link {
+.acheft-backend-link {
   display: none;
 }

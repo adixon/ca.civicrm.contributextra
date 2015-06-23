@@ -4,6 +4,6 @@
     <path>civicrm/admin/contribute/extrasettings</path>
     <page_callback>CRM_Contributextra_Form_ContributExtraSettings</page_callback>
     <title>ContributExtraSettings</title>
-    <access_arguments>access CiviCRM</access_arguments>
+    <access_arguments>administer CiviCRM,access CiviContribute</access_arguments>
   </item>
 </menu>

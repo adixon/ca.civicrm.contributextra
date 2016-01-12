@@ -158,6 +158,9 @@ class CRM_Contributextra_Form_Report_Contributextra extends CRM_Report_Form {
       'civicrm_contribution' => array(
         'dao' => 'CRM_Contribute_DAO_Contribution',
         'fields' => array(
+          'id' => array(
+            'title' => ts('Contribution Id'),
+          ),
           'contribution_status_id' => array('title' => ts('Contribution Status'),
             'default' => TRUE,
           ),

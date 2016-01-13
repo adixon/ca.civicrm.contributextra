@@ -205,31 +205,33 @@ class CRM_Contributextra_Form_Report_Contributextra extends CRM_Report_Form {
       'civicrm_contact' =>
       array(
         'dao' => 'CRM_Contact_DAO_Contact',
-        'fields' =>
-        array(
-          'sort_name' =>
-          array('title' => ts('Contact Name'),
+        'fields' => array(
+          'sort_name' => array(
+            'title' => ts('Contact Name'),
             'no_repeat' => TRUE,
           ),
-          'id' =>
-          array(
+          'id' => array(
             'no_display' => TRUE,
             'required' => TRUE,
           ),
-          'external_identifier' =>
-          array('title' => ts('External Id'),
+          'external_identifier' => array(
+            'title' => ts('External Id'),
             'no_repeat' => TRUE,
           ),
         ),
-        'filters' =>
-        array(
-          'id' =>
-          array('title' => ts('Contact ID'),
+        'filters' => array(
+          'id' => array(
+            'title' => ts('Contact ID'),
             'no_display' => TRUE,
           ),
-          'sort_name' =>
-          array('title' => ts('Contact Name'),
+          'sort_name' => array(
+            'title' => ts('Contact Name'),
             'operator' => 'like',
+          ),
+        ),
+        'order_bys' => array(
+          'sort_name' => array(
+            'title' => ts('Contact Name'),
           ),
         ),
         'grouping' => 'contact-fields',

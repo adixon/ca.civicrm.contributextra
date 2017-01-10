@@ -108,13 +108,7 @@ function contributextra_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 }
 
 function contributextra_civicrm_varset($vars) {
-  $version = CRM_Utils_System::version();
-  if (version_compare($version, '4.5') < 0) { /// support 4.4!
-    CRM_Core_Resources::singleton()->addSetting('contributextra', $vars);
-  }
-  else {
-    CRM_Core_Resources::singleton()->addVars('contributextra', $vars);
-  }
+  CRM_Core_Resources::singleton()->addVars('contributextra', $vars);
 }
 
 function contributextra_civicrm_navigationMenu(&$navMenu) {
@@ -222,17 +216,9 @@ function contributextra_CRM_Contribute_Form_Search(&$form) {
     }
   }
   if (count($backoffice_links)) {
-    $version = CRM_Utils_System::version();
-    if (version_compare($version, '4.5') < 0) { /// support 4.4!
-      // a hackish way to inject these links into the form, they are displayed nicely using some javascript
-      // that is added using the Tab.extra.tpl mechanism
-      $form->addElement('hidden','extra_backoffice_links',json_encode($backoffice_links));
-    }
-    else { // the new and better way as of 4.5
-      CRM_Core_Resources::singleton()->addStyleFile('ca.civicrm.contributextra', 'css/contribute_form_search.css');
-      contributextra_civicrm_varset(array('backofficeLinks' => $backoffice_links));
-      CRM_Core_Resources::singleton()->addScriptFile('ca.civicrm.contributextra', 'js/contribute_form_search.js');
-    }
+    CRM_Core_Resources::singleton()->addStyleFile('ca.civicrm.contributextra', 'css/contribute_form_search.css');
+    contributextra_civicrm_varset(array('backofficeLinks' => $backoffice_links));
+    CRM_Core_Resources::singleton()->addScriptFile('ca.civicrm.contributextra', 'js/contribute_form_search.js');
   }
 }
 

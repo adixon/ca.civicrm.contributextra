@@ -28,6 +28,12 @@ class CRM_Contributextra_Form_ContributExtraSettings extends CRM_Core_Form {
           true // is required
         );
       }
+      $this->add(
+        'checkbox', // field type
+        'summary_page_buttons', // field name
+        ts('Enable buttons for admin pages on contact summary page as well.')
+      );
+
       $this->addButtons(array(
         array(
           'type' => 'submit',

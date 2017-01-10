@@ -148,8 +148,22 @@ function contributextra_civicrm_buildForm($formName, &$form) {
   if (function_exists($fname)) {
     $fname($form);
   }
-  // else { echo $fname; die(); }
+  // else { echo '<pre>'.$fname.'</pre>'; }
 }
+
+/*
+ * hook_civicrm_pageRun
+ * Do a Drupal 7 style thing so we can write smaller functions
+ */
+function contributextra_civicrm_pageRun(&$page) {
+  $pageName = $page->getVar('_name');
+  $fname = 'contributextra_'.$pageName;
+  if (function_exists($fname)) {
+    $fname($page);
+  }
+  // else { echo '<pre>'.$fname.'</pre>'; }
+}
+
 
 /*
  * hook_civicrm_postProcess
@@ -186,7 +200,6 @@ function contributextra_CRM_Contribute_Form_Contribution_Main(&$form) {
       $form->removeElement('cvv2',TRUE);
       unset($form->_paymentFields['cvv2']);
       CRM_Core_Resources::singleton()->addStyleFile('ca.civicrm.contributextra', 'css/auth_front.css');
-      //CRM_Core_Resources::singleton()->addScriptFile('ca.fairvote.custom', 'js/auth_front.js');
     }
     catch (Exception $e) {
       // ignore
@@ -222,3 +235,34 @@ function contributextra_CRM_Contribute_Form_Search(&$form) {
   }
 }
 
+/*
+ *  Provide helpful links to the admin-only payment pages, from the summary page, if the setting is enabled.
+ */
+function contributextra_CRM_Contact_Page_View_Summary(&$page) {
+  // ignore invocations that aren't for a specific contact
+  $contactID = $page->getVar('_contactId');
+  if (empty($contactID)) {
+    return;
+  } 
+  $is_admin_page = civicrm_api3('Setting', 'getvalue', array('name' => 'contributextra_settings'));
+  if (empty($is_admin_page['summary_page_buttons'])) {
+    return;
+  }
+  $backoffice_links = array();
+  $params = array('sequential' => 1, 'is_active' => 1);
+  $result = civicrm_api3('ContributionPage', 'get', $params);
+  if (0 == $result['is_error'] && count($result['values']) > 0) {
+    foreach($result['values'] as $contribution_page) {
+      if (!empty($is_admin_page[$contribution_page['id']])) {
+        $url = CRM_Utils_System::url('civicrm/contribute/transact','reset=1&cid='.$contactID.'&id='.$contribution_page['id']);
+        $backoffice_links[] = array('url' => $url, 'title' => $contribution_page['title']);
+      }
+    }
+  }
+  if (count($backoffice_links)) {
+    CRM_Core_Resources::singleton()->addStyleFile('ca.civicrm.contributextra', 'css/contribute_form_search.css');
+    contributextra_civicrm_varset(array('backofficeLinks' => $backoffice_links));
+    CRM_Core_Resources::singleton()->addScriptFile('ca.civicrm.contributextra', 'js/contact_summary.js');
+  }
+}
+    

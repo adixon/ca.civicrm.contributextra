@@ -9,7 +9,7 @@ require_once 'CRM/Core/Form.php';
  */
 class CRM_Contributextra_Form_ContributExtraSettings extends CRM_Core_Form {
   function buildQuickForm() {
-    $result = civicrm_api3('ContributionPage', 'get', array('sequential' => 1));
+    $result = civicrm_api3('ContributionPage', 'get', array('sequential' => 1, 'is_active' => 1, 'options' => array('limit' => 200)));
     if (empty($result['values'])) {
       CRM_Core_Session::setStatus(ts('You have no contribution pages to configure'));
     }
@@ -23,7 +23,7 @@ class CRM_Contributextra_Form_ContributExtraSettings extends CRM_Core_Form {
         $this->add(
           'select', // field type
           $page['id'], // field name
-          $page['title'],
+          $page['title'].' ('.$page['id'].')',
           $options,
           true // is required
         );

@@ -182,12 +182,11 @@ function contributextra_civicrm_postProcess($formName, &$form) {
  */
 function contributextra_CRM_Contribute_Form_Contribution_Main(&$form) {
   // todo: improve permissions check
-  global $user;
-  $is_anon = empty($user->uid) ? TRUE : FALSE;
+  $isUserLoggedIn = CRM_Utils_System::isUserLoggedIn();
   $contribution_page_id = $form->getVar('_id');
   $settings = civicrm_api3('Setting', 'getvalue', array('name' => 'contributextra_settings'));
   $setting = empty($settings[$contribution_page_id]) ? 0 : $settings[$contribution_page_id];
-  if ($is_anon && ($setting == 1)) {
+  if (!$isUserLoggedIn && ($setting == 1)) {
     CRM_Core_Error::fatal(ts('This form is marked for administrative use only')); 
   }
   if (!$setting || empty($form->_paymentProcessors)) {
@@ -195,7 +194,7 @@ function contributextra_CRM_Contribute_Form_Contribution_Main(&$form) {
   }
 
   /* remove security code option if this is an authenticated user on someone else's front end */
-  if (!$is_anon && $form->elementExists('cvv2')) {
+  if ($isUserLoggedIn && $form->elementExists('cvv2')) {
     try {
       $form->removeElement('cvv2',TRUE);
       unset($form->_paymentFields['cvv2']);
@@ -218,7 +217,14 @@ function contributextra_CRM_Contribute_Form_Search(&$form) {
   $contactID = $form->_defaultValues['contact_id'];
   $backoffice_links = array();
   $is_admin_page = civicrm_api3('Setting', 'getvalue', array('name' => 'contributextra_settings'));
-  $params = array('version' => 3, 'sequential' => 1, 'is_active' => 1);
+  $params = array(
+    'version' => 3,
+    'sequential' => 1,
+    'is_active' => 1,
+    'options' => array(
+      'limit' => 0,
+    )
+  );
   $result = civicrm_api('ContributionPage', 'get', $params);
   if (0 == $result['is_error'] && count($result['values']) > 0) {
     foreach($result['values'] as $page) {
@@ -249,7 +255,13 @@ function contributextra_CRM_Contact_Page_View_Summary(&$page) {
     return;
   }
   $backoffice_links = array();
-  $params = array('sequential' => 1, 'is_active' => 1);
+  $params = array(
+    'sequential' => 1,
+    'is_active' => 1,
+    'options' => array(
+      'limit' => 0,
+    )
+  );
   $result = civicrm_api3('ContributionPage', 'get', $params);
   if (0 == $result['is_error'] && count($result['values']) > 0) {
     foreach($result['values'] as $contribution_page) {

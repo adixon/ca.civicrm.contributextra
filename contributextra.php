@@ -230,7 +230,7 @@ function contributextra_CRM_Contribute_Form_Search(&$form) {
     foreach($result['values'] as $page) {
       if (!empty($is_admin_page[$page['id']])) {
         $url = CRM_Utils_System::url('civicrm/contribute/transact','reset=1&cid='.$contactID.'&id='.$page['id']);
-        $backoffice_links[] = array('url' => $url, 'title' => $page['title']);
+        $backoffice_links[] = array('id' => $page['id'], 'url' => $url, 'title' => $page['title']);
       }
     }
   }
@@ -267,7 +267,7 @@ function contributextra_CRM_Contact_Page_View_Summary(&$page) {
     foreach($result['values'] as $contribution_page) {
       if (!empty($is_admin_page[$contribution_page['id']])) {
         $url = CRM_Utils_System::url('civicrm/contribute/transact','reset=1&cid='.$contactID.'&id='.$contribution_page['id']);
-        $backoffice_links[] = array('url' => $url, 'title' => $contribution_page['title']);
+        $backoffice_links[] = array('id' => $page['id'], 'url' => $url, 'title' => $contribution_page['title']);
       }
     }
   }
